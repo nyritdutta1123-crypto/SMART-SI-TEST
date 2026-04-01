@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 # --- Page Config ---
 st.set_page_config(page_title="SMART-SI Insulin Calculator", page_icon="💉", layout="centered")
 
-st.title("SIGMA 2026 Posterpedia")
-st.subheader("💉 SMART-SI Personalized Insulin Calculator")
+st.title("Personalized Diabetes Therapy")
+st.subheader("💉 SMART-SI Insulin Calculator")
 
 # -----------------------------------
 # Hidden Model Data (acts as base physiology)
