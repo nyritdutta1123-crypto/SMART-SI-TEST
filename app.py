@@ -22,17 +22,17 @@ k1 = 0.01
 hypoglycemia_threshold = 70
 
 # -----------------------------------
-# NEW: DYNAMIC SI FUNCTION
+# DYNAMIC SI FUNCTION
 # -----------------------------------
 
 def calculate_dynamic_SI(glucose_series, insulin_series, meal_series, time_series):
     
     SI = np.zeros_like(glucose_series)
     
-    # Tunable physiological parameters
-    a = 0.02   # relaxation rate
-    b = 0.0003 # glucose influence
-    S0 = 0.01  # baseline SI
+    # Physiological parameters
+    a = 0.02
+    b = 0.0003
+    S0 = 0.01
     
     SI[0] = S0
     
@@ -66,11 +66,10 @@ meal_input = st.number_input(
 # PERSONALIZATION LOGIC
 # -----------------------------------
 
-# Scale base data
 glucose_personal = glucose_base * (glucose_input / 120)
 meal_personal = meal_base * (meal_input / 50)
 
-# NEW: Dynamic SI instead of static
+# Dynamic SI
 SI_series = calculate_dynamic_SI(glucose_personal, insulin_base, meal_personal, time_data)
 SI_current = SI_series[-1]
 
@@ -78,20 +77,27 @@ st.sidebar.success(f"Current Dynamic SI: {round(SI_current,4)}")
 st.sidebar.info("Smart-SI test by Nyrit")
 
 # -----------------------------------
-# INSULIN DOSE CALCULATION
+# ✅ CLINICALLY CORRECT DOSE MODEL
 # -----------------------------------
 
-dGdt_now = (glucose_input - 100) / 10
+# Base clinical parameters
+ICR_base = 12   # grams per 1 unit insulin
+ISF = 50        # mg/dL drop per unit
 
-# Convert meal grams → glucose effect (important fix)
-meal_effect = meal_input * 0.1
+# Adjust ICR using dynamic SI
+ICR_dynamic = ICR_base / (1 + 5*(SI_current - 0.01))
 
-if SI_current > 0:
-    dose = (-dGdt_now - k1 * glucose_input + meal_effect) / SI_current
-else:
-    dose = 0
+# Meal insulin
+meal_dose = meal_input / ICR_dynamic
 
-dose = max(0, dose)
+# Correction insulin (only if glucose high)
+correction = max(0, (glucose_input - 110) / ISF)
+
+# Final dose
+dose = meal_dose + correction
+
+# Safety clamp (important)
+dose = max(0, min(dose, 15))
 
 # -----------------------------------
 # HYPOGLYCEMIA PREDICTION
@@ -119,7 +125,8 @@ if st.button("Calculate Insulin Dose 💉"):
 
     st.info(f"""
     🔬 Based on:
-    - Current Dynamic SI: {round(SI_current,4)}
+    - Dynamic SI: {round(SI_current,4)}
+    - ICR (adjusted): {round(ICR_dynamic,2)}
     - Glucose: {glucose_input} mg/dL
     - Meal: {meal_input} g
     """)
@@ -133,7 +140,7 @@ if st.button("Calculate Insulin Dose 💉"):
         st.success("✅ No Hypoglycemia Risk Detected")
 
     # -----------------------------------
-    # Glucose Plot (UNCHANGED)
+    # Glucose Plot
     # -----------------------------------
 
     st.subheader("Personalized Glucose Response Curve")
@@ -143,7 +150,6 @@ if st.button("Calculate Insulin Dose 💉"):
     ax.plot(time_data, glucose_personal, marker='o', linestyle='-')
     ax.axhline(y=hypoglycemia_threshold, linestyle='--', label="Hypoglycemia Threshold")
 
-    # Mark hypo points
     for t, g in zip(hypo_times, hypo_values):
         ax.plot(t, g, 'rx', markersize=10)
 
@@ -157,7 +163,7 @@ if st.button("Calculate Insulin Dose 💉"):
     plt.close(fig)
 
     # -----------------------------------
-    # NEW: Dynamic SI Plot
+    # Dynamic SI Plot
     # -----------------------------------
 
     st.subheader("Dynamic Insulin Sensitivity Over Time")
