@@ -6,11 +6,11 @@ import matplotlib.pyplot as plt
 # --- Page Config ---
 st.set_page_config(page_title="SMART-SI Insulin Calculator", page_icon="💉", layout="centered")
 
-st.title("PERSONALIZED DIABETES THERAPY")
+st.title("🧬 Personalized Diabetes Therapy")
 st.subheader("💉 SMART-SI Personalized Insulin Calculator")
 
 # -----------------------------------
-# Hidden Model Data (acts as base physiology)
+# Model Data (Hidden)
 # -----------------------------------
 
 time_data = np.array([0,10,20,30,40,50,60,70,80,90])
@@ -20,9 +20,10 @@ meal_base = np.array([0,40,60,50,30,20,10,5,0,0])
 
 k1 = 0.01
 hypoglycemia_threshold = 70
+safe_glucose_threshold = 80   # 🔥 NEW SAFETY LIMIT
 
 # -----------------------------------
-# Function to compute PERSONALIZED SI
+# Function to compute SI
 # -----------------------------------
 
 def calculate_SI(glucose_series, insulin_series, meal_series, time_series):
@@ -35,10 +36,7 @@ def calculate_SI(glucose_series, insulin_series, meal_series, time_series):
             SI = (-dGdt[i] - k1 * glucose_series[i] + meal_series[i]) / I
             SI_values.append(SI)
 
-    if len(SI_values) > 0:
-        return np.median(SI_values)
-    else:
-        return 0
+    return np.median(SI_values) if SI_values else 0
 
 # -----------------------------------
 # USER INPUT
@@ -61,34 +59,35 @@ meal_input = st.number_input(
 )
 
 # -----------------------------------
-# PERSONALIZATION LOGIC
+# PERSONALIZATION
 # -----------------------------------
 
-# Scale base data
 glucose_personal = glucose_base * (glucose_input / 120)
 meal_personal = meal_base * (meal_input / 50)
 
-# Calculate SI
 SI_personal = calculate_SI(glucose_personal, insulin_base, meal_personal, time_data)
 
 st.sidebar.success(f"Personalized Insulin Sensitivity (SI): {round(SI_personal,4)}")
-st.sidebar.info("Smart-SI test by Nyrit")
+st.sidebar.info("Smart-SI test by Nyrit and Rittika")
 
 # -----------------------------------
-# INSULIN DOSE CALCULATION
+# INSULIN DOSE CALCULATION (WITH SAFETY)
 # -----------------------------------
 
 dGdt_now = (glucose_input - 100) / 10
 
-if SI_personal > 0:
-    dose = (-dGdt_now - k1 * glucose_input + meal_input) / SI_personal
+if glucose_input < safe_glucose_threshold:
+    dose = 0   # 🔥 SAFETY OVERRIDE
 else:
-    dose = 0
+    if SI_personal > 0:
+        dose = (-dGdt_now - k1 * glucose_input + meal_input) / SI_personal
+    else:
+        dose = 0
 
 dose = max(0, dose)
 
 # -----------------------------------
-# HYPOGLYCEMIA PREDICTION
+# HYPOGLYCEMIA DETECTION
 # -----------------------------------
 
 hypo_times = []
@@ -109,7 +108,11 @@ if st.button("Calculate Insulin Dose 💉"):
 
     st.success("Personalized Result")
 
-    st.metric("Recommended Insulin Dose (units)", round(dose, 2))
+    # 🔥 Show warning if low glucose
+    if glucose_input < safe_glucose_threshold:
+        st.error("🚨 Glucose is too low! Insulin NOT recommended.")
+    else:
+        st.metric("Recommended Insulin Dose (units)", round(dose, 2))
 
     st.info(f"""
     🔬 Based on:
@@ -134,11 +137,10 @@ if st.button("Calculate Insulin Dose 💉"):
 
     fig, ax = plt.subplots(figsize=(10, 5))
 
-    ax.plot(time_data, glucose_personal, marker='o', linestyle='-')
+    ax.plot(time_data, glucose_personal, marker='o')
 
     ax.axhline(y=hypoglycemia_threshold, linestyle='--', label="Hypoglycemia Threshold")
 
-    # Mark hypo points
     for t, g in zip(hypo_times, hypo_values):
         ax.plot(t, g, 'rx', markersize=10)
 
