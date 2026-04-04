@@ -68,7 +68,7 @@ meal_personal = meal_base * (meal_input / 50)
 SI_personal = calculate_SI(glucose_personal, insulin_base, meal_personal, time_data)
 
 st.sidebar.success(f"Personalized Insulin Sensitivity (SI): {round(SI_personal,4)}")
-st.sidebar.info("Smart-SI test by Nyrit and Rittika")
+st.sidebar.info("Smart-SI test by Nyrit")
 
 # -----------------------------------
 # INSULIN DOSE CALCULATION (WITH SAFETY)
