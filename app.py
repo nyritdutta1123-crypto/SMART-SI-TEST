@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 # --- Page Config ---
 st.set_page_config(page_title="SMART-SI Insulin Calculator", page_icon="💉", layout="centered")
 
-st.title("Personalized Diabetes Therapy")
-st.subheader("💉 SMART-SI Insulin Calculator")
+st.title("PERSONALIZED DIABETES THERAPY")
+st.subheader("💉 SMART-SI Personalized Insulin Calculator")
 
 # -----------------------------------
 # Hidden Model Data (acts as base physiology)
@@ -22,25 +22,23 @@ k1 = 0.01
 hypoglycemia_threshold = 70
 
 # -----------------------------------
-# DYNAMIC SI FUNCTION
+# Function to compute PERSONALIZED SI
 # -----------------------------------
 
-def calculate_dynamic_SI(glucose_series, insulin_series, meal_series, time_series):
-    
-    SI = np.zeros_like(glucose_series)
-    
-    # Physiological parameters
-    a = 0.02
-    b = 0.0003
-    S0 = 0.01
-    
-    SI[0] = S0
-    
-    for i in range(1, len(time_series)):
-        dSI = -a*(SI[i-1] - S0) + b*glucose_series[i-1]
-        SI[i] = SI[i-1] + dSI
-        
-    return SI
+def calculate_SI(glucose_series, insulin_series, meal_series, time_series):
+    dGdt = np.gradient(glucose_series, time_series)
+    SI_values = []
+
+    for i in range(len(time_series)):
+        I = insulin_series[i]
+        if I > 0:
+            SI = (-dGdt[i] - k1 * glucose_series[i] + meal_series[i]) / I
+            SI_values.append(SI)
+
+    if len(SI_values) > 0:
+        return np.median(SI_values)
+    else:
+        return 0
 
 # -----------------------------------
 # USER INPUT
@@ -66,38 +64,28 @@ meal_input = st.number_input(
 # PERSONALIZATION LOGIC
 # -----------------------------------
 
+# Scale base data
 glucose_personal = glucose_base * (glucose_input / 120)
 meal_personal = meal_base * (meal_input / 50)
 
-# Dynamic SI
-SI_series = calculate_dynamic_SI(glucose_personal, insulin_base, meal_personal, time_data)
-SI_current = SI_series[-1]
+# Calculate SI
+SI_personal = calculate_SI(glucose_personal, insulin_base, meal_personal, time_data)
 
-st.sidebar.success(f"Current Dynamic SI: {round(SI_current,4)}")
+st.sidebar.success(f"Personalized Insulin Sensitivity (SI): {round(SI_personal,4)}")
 st.sidebar.info("Smart-SI test by Nyrit")
 
 # -----------------------------------
-# ✅ CLINICALLY CORRECT DOSE MODEL
+# INSULIN DOSE CALCULATION
 # -----------------------------------
 
-# Base clinical parameters
-ICR_base = 12   # grams per 1 unit insulin
-ISF = 50        # mg/dL drop per unit
+dGdt_now = (glucose_input - 100) / 10
 
-# Adjust ICR using dynamic SI
-ICR_dynamic = ICR_base / (1 + 5*(SI_current - 0.01))
+if SI_personal > 0:
+    dose = (-dGdt_now - k1 * glucose_input + meal_input) / SI_personal
+else:
+    dose = 0
 
-# Meal insulin
-meal_dose = meal_input / ICR_dynamic
-
-# Correction insulin (only if glucose high)
-correction = max(0, (glucose_input - 110) / ISF)
-
-# Final dose
-dose = meal_dose + correction
-
-# Safety clamp (important)
-dose = max(0, min(dose, 15))
+dose = max(0, dose)
 
 # -----------------------------------
 # HYPOGLYCEMIA PREDICTION
@@ -125,8 +113,7 @@ if st.button("Calculate Insulin Dose 💉"):
 
     st.info(f"""
     🔬 Based on:
-    - Dynamic SI: {round(SI_current,4)}
-    - ICR (adjusted): {round(ICR_dynamic,2)}
+    - Personalized SI: {round(SI_personal,4)}
     - Glucose: {glucose_input} mg/dL
     - Meal: {meal_input} g
     """)
@@ -140,7 +127,7 @@ if st.button("Calculate Insulin Dose 💉"):
         st.success("✅ No Hypoglycemia Risk Detected")
 
     # -----------------------------------
-    # Glucose Plot
+    # Plot
     # -----------------------------------
 
     st.subheader("Personalized Glucose Response Curve")
@@ -148,8 +135,10 @@ if st.button("Calculate Insulin Dose 💉"):
     fig, ax = plt.subplots(figsize=(10, 5))
 
     ax.plot(time_data, glucose_personal, marker='o', linestyle='-')
+
     ax.axhline(y=hypoglycemia_threshold, linestyle='--', label="Hypoglycemia Threshold")
 
+    # Mark hypo points
     for t, g in zip(hypo_times, hypo_values):
         ax.plot(t, g, 'rx', markersize=10)
 
@@ -161,23 +150,6 @@ if st.button("Calculate Insulin Dose 💉"):
 
     st.pyplot(fig)
     plt.close(fig)
-
-    # -----------------------------------
-    # Dynamic SI Plot
-    # -----------------------------------
-
-    st.subheader("Dynamic Insulin Sensitivity Over Time")
-
-    fig2, ax2 = plt.subplots(figsize=(10, 5))
-
-    ax2.plot(time_data, SI_series, marker='o')
-    ax2.set_title("Time-Varying Insulin Sensitivity")
-    ax2.set_xlabel("Time (minutes)")
-    ax2.set_ylabel("Insulin Sensitivity")
-    ax2.grid(True)
-
-    st.pyplot(fig2)
-    plt.close(fig2)
 
 # -----------------------------------
 # Disclaimer
