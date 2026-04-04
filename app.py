@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 # --- Page Config ---
 st.set_page_config(page_title="SMART-SI Insulin Calculator", page_icon="💉", layout="centered")
 
-st.title("🧬 Personalized Diabetes Therapy")
+st.title(" Personalized Diabetes Therapy")
 st.subheader("💉 SMART-SI Personalized Insulin Calculator")
 
 # -----------------------------------
